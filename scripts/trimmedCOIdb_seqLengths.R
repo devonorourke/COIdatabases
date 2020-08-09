@@ -1,0 +1,26 @@
+## plot used to generate bar chart of sequence lengths of COI fragments ...
+## ... after primer-based coordinate trimming of giant_alignment file
+
+library(ggplot2)
+library(dplyr)
+library(scales)
+
+################################################################################
+## load data and plot
+################################################################################
+
+df <- read_table("", col_names=FALSE)
+colnames(df) <- c("NumberOfSeqs", "SeqLength")
+sumSeqs <- sum(df$NumberOfSeqs)
+df <- df %>%
+  mutate(SeqLengtf = as.numeric(SeqLength)) %>%
+  arrange(SeqLength) %>%
+  mutate(CumSum = cumsum(NumberOfSeqs)) %>%
+  mutate(fracSeqs = CumSum/sumSeqs)
+ggplot(df, aes(x=SeqLength, y=NumberOfSeqs)) +
+  geom_bar(stat="identity") +
+  theme_bw() +
+  scale_y_continuous(labels=comma) +
+  labs(x="\nSequence length (bp)", y="Number of sequences\n")
+
+ggsave("anml_primer_COI_seqLength.png", height=10, width=15, units="cm") 
