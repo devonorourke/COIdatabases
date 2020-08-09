@@ -9,7 +9,7 @@ library(scales)
 ## load data and plot
 ################################################################################
 
-df <- read_table("", col_names=FALSE)
+df <- read_table("https://raw.githubusercontent.com/devonorourke/COIdatabases/master/data/anml_seq_lengths.freq.table", col_names=FALSE)
 colnames(df) <- c("NumberOfSeqs", "SeqLength")
 sumSeqs <- sum(df$NumberOfSeqs)
 df <- df %>%
