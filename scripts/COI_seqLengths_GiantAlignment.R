@@ -1,6 +1,7 @@
 ## plot used to generate bar chart of sequence lengths of COI fragments ...
 ## ... after primer-based coordinate trimming of giant_alignment file
 
+library(readr)
 library(ggplot2)
 library(dplyr)
 library(scales)
