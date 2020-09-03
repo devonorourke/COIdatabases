@@ -1,0 +1,14 @@
+	1
+Length min	170.0
+Length 1%	170.0
+Length 25%	178.0
+Length median	178.0
+Length 75%	180.0
+Length 99%	181.0
+Length max	200.0
+N uniques	27681.0
+Sequence Entropy	10.23
+8mer Entropy	7.96
+16mer Entropy	10.41
+24mer Entropy	12.04
+32mer Entropy	12.84

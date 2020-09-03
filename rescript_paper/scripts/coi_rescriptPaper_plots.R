@@ -1,36 +1,76 @@
 library(tidyverse)
 library(scico)
 library(ggpubr)
+library(scales)
 
 ################################################################################
 ## part 0a - import fitClassifier, crossValidate, evalSeqs, evalTaxa text files
 ################################################################################
 
-evalSeqs <- read_delim(file="https://raw.githubusercontent.com/devonorourke/COIdatabases/master/rescript_paper_data/all_Chordate_EvalSeqs_Data.tsv",
-                       col_names = FALSE, delim="\t")
-colnames(evalSeqs) <- c("Metric", "Value", "Dataset")
-evalSeqs$Dataset <- gsub("boldDerep1", "boldFull", evalSeqs$Dataset)
-
-evalTaxa <- read_delim(file="https://raw.githubusercontent.com/devonorourke/COIdatabases/master/rescript_paper_data/all_Chordate_EvalTaxa_Data.tsv",
-                       col_names = FALSE, delim="\t") 
-evalTaxa <- evalTaxa[,c(2:11)]
-colnames(evalTaxa) <- c("Level", "Unique Labels", "Taxonomic Entropy",
-                        "Terminal Labels", "Percent Terminal Labels",
-                        "Lables at Depth", "Fraction of Labels at Depth",
-                        "Unclassified Labels", "Fraction of Unclassified Labels",
-                        "Dataset") 
-evalTaxa$Dataset <- gsub("boldDerep1", "boldFull", evalTaxa$Dataset)
-evalTaxa$Dataset <- gsub("_Chordata", "", evalTaxa$Dataset)
-
-fitclass <- read_delim(file="https://raw.githubusercontent.com/devonorourke/COIdatabases/master/rescript_paper_data/all_Chordate_FitClassifier_Data.tsv",
-                       col_names = TRUE, delim="\t") %>% 
-  mutate(Dataset = gsub("boldDerep1", "boldFull", Dataset))
+## functions to import RESCRIPt outputs from `evaluate-seqs`, `evaluate-taxonomy`, `evaluate-cross-validate`, and `evaluate-fit-classifier`
+  ## grouped by primer-trimmed (ANML) or not (Full), 
+  ## and dereplication (100) or dereplication followed by clustering (97, 98, 99)
+## datasets are divided into arthropod and chordate reference sequences
 
 
-crossval <- read_delim(file="https://raw.githubusercontent.com/devonorourke/COIdatabases/master/rescript_paper_data/all_Chordate_CrossValidate_Data.tsv",
-                       col_names = TRUE, delim="\t") %>% 
-  mutate(Dataset = gsub("boldDerep1", "boldFull", Dataset))
+## import `evaluate-seqs` outputs, containing information from exporting all .qzv files into single text file per Taxa group (chordata, arthropoda)
+evalSeqImporter <- function(urlpath, TaxaLabel){
+  tmpSeqs <- read_delim(file=urlpath, col_names=FALSE, delim="\t")
+  colnames(tmpSeqs) <- c("Metric", "Value", "Dataset")
+  tmpSeqs <- tmpSeqs %>% 
+    mutate(Dataset = gsub("boldDerep1", "boldFull", Dataset),
+           TaxaLabel = TaxaLabel)
+  tmpSeqs
+}
 
+evalSeq_chordateURL <- "https://raw.githubusercontent.com/devonorourke/COIdatabases/master/rescript_paper/data/evalSeqs/boldData/all_ChordataOnly_EvalSeqs_Data.tsv"
+evalSeq_chordate <- evalSeqImporter(evalSeq_chordateURL, "Chordata")
+evalSeqs_arthropodURL <- "https://raw.githubusercontent.com/devonorourke/COIdatabases/master/rescript_paper/data/evalSeqs/boldData/all_ArthOnly_EvalSeqs_Data.tsv"
+evalSeq_arthropod <- evalSeqImporter(evalSeqs_arthropodURL, "Arthropoda")
+evalSeqs <- rbind(evalSeq_chordate, evalSeq_arthropod)
+rm(evalSeq_chordateURL, evalSeq_chordate, evalSeqs_arthropodURL, evalSeq_arthropod)
+
+
+## import `evaluate-taxonomy` outputs, containing information from exporting all .qzv files into single text file per Taxa group (chordata, arthropoda)
+evalTaxImporter <- function(urlpath, TaxaLabel){
+  tmpTaxa <- read_delim(file=urlpath, col_names=FALSE, delim="\t")
+  colnames(tmpTaxa) <- c("drop", "Level", "Unique Labels", "Taxonomic Entropy", "Terminal Labels", "Percent Terminal Labels","Lables at Depth",
+                          "Fraction of Labels at Depth","Unclassified Labels", "Fraction of Unclassified Labels","Dataset")
+  tmpTaxa %>% 
+    select(-drop) %>% 
+    mutate(Dataset = gsub("_Chordata", "", Dataset),
+           Dataset = gsub("_Arthropoda", "", Dataset),
+           TaxaLabel = TaxaLabel)
+}
+
+evalTax_chordateURL <- "https://raw.githubusercontent.com/devonorourke/COIdatabases/master/rescript_paper/data/evalTaxa/boldData/all_Chordate_EvalTaxa_Data.tsv"
+evalTax_chordate <- evalTaxImporter(evalTax_chordateURL, "Chordata")
+evalTax_arthropodURL <- "https://raw.githubusercontent.com/devonorourke/COIdatabases/master/rescript_paper/data/evalTaxa/boldData/all_Arth_EvalTaxa_Data.tsv"
+evalTax_arthropod <- evalTaxImporter(evalTax_arthropodURL, "Arthropoda")
+evalTaxa <- rbind(evalTax_chordate, evalTax_arthropod)
+rm(evalTax_chordate, evalTax_arthropod, evalTax_chordateURL, evalTax_arthropodURL)
+
+## import `evaluate-fit-classifier` and `evaluate-cross-validate` outputs
+evalOtherImporter <- function(urlpath, Taxalabel){
+  tmpFitClass <- read_delim(file=urlpath, col_names=TRUE, delim="\t") %>% 
+    mutate(Dataset = gsub("boldDerep1", "boldFull", Dataset),
+           TaxaLabel = Taxalabel)
+}
+
+fitclass_chordateURL <- "https://raw.githubusercontent.com/devonorourke/COIdatabases/master/rescript_paper/data/fitClassifier/boldData/all_Chordate_FitClassifier_Data.tsv"
+fitclass_chordate <- evalOtherImporter(fitclass_chordateURL, "Chordata")
+
+fitclass_arthropodURL <- "https://raw.githubusercontent.com/devonorourke/COIdatabases/master/rescript_paper/data/fitClassifier/boldData/all_bold_Arth_fitclassifier_data.csv"
+fitclass_arthropod <- read_csv(file=fitclass_arthropodURL) %>% mutate(TaxaLabel = "Arthropoda")
+fitclass <- rbind(fitclass_chordate, fitclass_arthropod)
+rm(fitclass_chordateURL, fitclass_chordate, fitclass_arthropodURL, fitclass_arthropod)
+
+crossval_chordateURL <- "https://raw.githubusercontent.com/devonorourke/COIdatabases/master/rescript_paper/data/crossValidate/boldData/all_Chordate_CrossValidate_Data.tsv"
+crossval_chordate <- evalOtherImporter(crossval_chordateURL, "Chordata")
+crossval_arthropodURL <- "https://raw.githubusercontent.com/devonorourke/COIdatabases/master/rescript_paper/data/crossValidate/boldData/all_bold_arth_crossvalidate_data.csv"
+crossval_arthropod <- read_csv(file=crossval_arthropodURL) %>% mutate(TaxaLabel = "Arthropoda")
+crossval <- rbind(crossval_chordate, crossval_arthropod)
+rm(crossval_chordateURL, crossval_chordate, crossval_arthropodURL, crossval_arthropod)
 
 ################################################################################
 ## part 0b: get better colors for plots
@@ -51,24 +91,37 @@ evalTaxa$Dataset <- factor(evalTaxa$Dataset, levels = c(
   'boldFull_100', 'boldFull_99', 'boldFull_98', 'boldFull_97',
   'boldANML_100', 'boldANML_99', 'boldANML_98', 'boldANML_97'))
 
+## plot 0 - use only for legend key:
+p0 <- ggplot(evalTaxa, aes(x=Level, y=`Unique Labels`, color=Dataset)) +
+  facet_wrap(~TaxaLabel, scales = "free_y") +
+  geom_line(size=2) + theme_bw() + theme(panel.grid = element_blank(), 
+                                         strip.text = element_text(size=12),
+                                         legend.text = element_text(size=14),
+                                         legend.title = element_text(size=16)) +
+  scale_color_manual(values=pal8) + scale_y_continuous(labels=comma) +
+  scale_x_continuous(breaks = c(1,2,3,4,5,6,7), labels = c("K", "P", "C", "O", "F", "G", "S")) +
+  guides(color=guide_legend(nrow=4,byrow=FALSE))
+
 ## plot 1a:
 p1a <- ggplot(evalTaxa, aes(x=Level, y=`Unique Labels`, color=Dataset)) +
-  geom_line() + theme_bw() + theme(panel.grid = element_blank()) +
-  scale_color_manual(values=pal8) + 
-  scale_x_continuous(breaks = c(1,2,3,4,5,6,7), labels = c("K", "P", "C", "O", "F", "G", "S"))
-
+  facet_wrap(~TaxaLabel, scales = "free_y") +
+  geom_line() + theme_bw() + theme(panel.grid = element_blank(), strip.text = element_text(size=12), legend.position = "none") +
+  scale_color_manual(values=pal8) + scale_y_continuous(labels=comma) +
+  scale_x_continuous(breaks = c(1,2,3,4,5,6,7), labels = c("K", "P", "C", "O", "F", "G", "S")) +
+  guides(color=guide_legend(nrow=4,byrow=FALSE))
 
 ## plot 1b:
 p1b <- ggplot(evalTaxa, aes(x=Level, y=`Taxonomic Entropy`, color=Dataset)) +
-  geom_line() + theme_bw() + theme(panel.grid = element_blank(), legend.position="none") +
+  facet_wrap(~TaxaLabel) +
+  geom_line() + theme_bw() + theme(panel.grid = element_blank(), strip.text = element_text(size=12), legend.position="none") +
   scale_color_manual(values=pal8) + 
   scale_x_continuous(breaks = c(1,2,3,4,5,6,7), labels = c("K", "P", "C", "O", "F", "G", "S"))
 
-
-## plot 1c with alternate palette:
+## plot 1c:
 p1c <- ggplot(evalTaxa, aes(x=Level, y=`Terminal Labels`, color=Dataset)) +
-  geom_line() + theme_bw() + theme(panel.grid = element_blank(), legend.position="none") +
-  scale_color_manual(values=pal8) + 
+  facet_wrap(~TaxaLabel, scales="free_y") +
+  geom_line() + theme_bw() + theme(panel.grid = element_blank(), strip.text = element_text(size=12), legend.position="none") +
+  scale_color_manual(values=pal8) + scale_y_continuous(labels=comma) +
   scale_x_continuous(breaks = c(1,2,3,4,5,6,7), labels = c("K", "P", "C", "O", "F", "G", "S"))
 
 ## plot 1d:
@@ -78,29 +131,31 @@ fitclass$Dataset <- factor(fitclass$Dataset, levels = c(
   'boldANML_100', 'boldANML_99', 'boldANML_98', 'boldANML_97'))
 ## make plot
 p1d <- ggplot(fitclass, aes(x=Level, y=`F-Measure`, color=Dataset)) +
-  geom_line() + theme_bw() + theme(panel.grid = element_blank(), legend.position="none") +
+  facet_wrap(~TaxaLabel) +
+  geom_line() + theme_bw() + theme(panel.grid = element_blank(), strip.text = element_text(size=12), legend.position="none") +
   scale_color_manual(values=pal8) + 
   scale_x_continuous(breaks = c(1,2,3,4,5,6,7), labels = c("K", "P", "C", "O", "F", "G", "S"))
 
 ## plot 1e:
 ## specify order for legend
+
 crossval$Dataset <- factor(crossval$Dataset, levels = c(
   'boldFull_100', 'boldFull_99', 'boldFull_98', 'boldFull_97',
   'boldANML_100', 'boldANML_99', 'boldANML_98', 'boldANML_97'))
 ## make plot
 p1e <- ggplot(crossval, aes(x=Level, y=`F-Measure`, color=Dataset)) +
-  geom_line() + theme_bw() + theme(panel.grid = element_blank(), legend.position="none") +
+  facet_wrap(~TaxaLabel) +
+  geom_line() + theme_bw() + theme(panel.grid = element_blank(), strip.text = element_text(size=12), legend.position="none") +
   scale_color_manual(values=pal8) + 
   scale_x_continuous(breaks = c(1,2,3,4,5,6,7), labels = c("K", "P", "C", "O", "F", "G", "S"))
 
 ## stitch together plots 1a-1e, grouping legend in bottom right of 3x2 grid:
-commleg1a <- get_legend(p1a)
-mod_p1a <- p1a + theme(legend.position = "none")
-ggarrange(mod_p1a, p1b, p1c, p1d, p1e, commleg1a,
-          ncol=3, nrow=2, labels = c("A", "B", "C", "D", "E", NA))
+commleg1 <- get_legend(p0)
+ggarrange(p1a, p1b, p1c, p1d, commleg1, p1e,
+          ncol=2, nrow=3, labels = c("A", "B", "C", "D", NA, "E"))
 
-setwd("~/github/COIdatabases/rescript_paper_data/")   ## change as needed
-ggsave("boldCOI_chordateOnly_TaxonomyEval_Figure.png", width=25, height=15, units="cm")
+setwd("~/github/COIdatabases/rescript_paper/figures/")   ## change as needed
+ggsave("boldCOI_TaxonomyEval_Figure.png", width=25, height=15, units="cm")
 
 ## cleanup:
 rm(p1a, mod_p1a, p1b, p1c, p1d, p1e, commleg1a,
@@ -119,13 +174,17 @@ evalSeqs$Dataset <- factor(evalSeqs$Dataset, levels = c(
 ## plot 2a:
 p2a <- ggplot(evalSeqs %>% filter(Metric=="N uniques"), 
        aes(x=Dataset, y=Value, fill=Dataset)) +
+  facet_wrap(~TaxaLabel, scales = "free_y") +
   geom_col(position = position_dodge(width = 1.1)) +
+  scale_y_continuous(labels=comma) +
   scale_fill_manual(values=pal8) +
   theme_bw() + 
   theme(panel.grid = element_blank(), 
-        axis.text.x = element_text(angle=45, hjust=1)) +
-  labs(x="", y="Unique Sequences")
-
+        axis.text.x = element_text(angle=45, hjust=1),
+        strip.text = element_text(size=12),
+        legend.position = "top") +
+  labs(x="", y="Unique Sequences") +
+  guides(fill=guide_legend(nrow=2,byrow=TRUE))
 
 ## plot 2b:
 ## subset dataset and set another group level for plot
@@ -135,16 +194,19 @@ kmerplotdat$Metric <- factor(kmerplotdat$Metric, levels = c(
   "Sequence", "32mer", "24mer", "16mer", "8mer"))
 
 p2b <- ggplot(kmerplotdat, aes(x=Metric, y=Value, color=Dataset, group=Dataset)) +
+  facet_wrap(~TaxaLabel) +
   geom_line() +
-  #geom_point(size=1) +
   scale_color_manual(values=pal8) +
   theme_bw() + 
-  theme(panel.grid = element_blank()) +
-  labs(x="", y="Sequence Entropy")
+  theme(panel.grid = element_blank(), strip.text = element_text(size=12), legend.position = "none") +
+  labs(x="", y="Entropy")
 
 
 ## stitch two together plots with 2 col, 1row grid:
-ggarrange(p2a, p2b, common.legend = TRUE, align = "h")
-setwd("~/github/COIdatabases/rescript_paper_data/")   ## change as needed
-ggsave("boldCOI_chordateOnly_SequenceEval_Figure.png", width=20, height=10, units="cm")
+ggarrange(p2a, p2b, nrow=2, ncol=1, 
+          heights = c(1.8, 1),
+          labels = c("A", "B"),
+          align = "hv")
 
+setwd("~/github/COIdatabases/rescript_paper/figures/")   ## change as needed
+ggsave("boldCOI_SequenceEval_Figure.png", width=17, height=12, units="cm")
