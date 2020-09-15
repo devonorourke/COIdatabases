@@ -220,6 +220,7 @@ ggarrange(p2a, p2b, nrow=2, ncol=1,
 
 setwd("~/github/COIdatabases/rescript_paper/figures/")   ## change as needed
 ggsave("boldCOI_SequenceEval_Figure.png", width=17, height=12, units="cm")
+ggsave("boldCOI_SequenceEval_Figure.svg", width=17, height=12, units="cm")
 
 ## cleanup
 rm(p2a, p2b)
