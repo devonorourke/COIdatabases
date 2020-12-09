@@ -1,0 +1,9 @@
+id	Level	Unique Labels	Taxonomic Entropy	Number of Features Terminating at Depth	Proportion of Features Terminating at Depth	Number of Features Classified at Depth	Proportion of Features Classified at Depth	Number of Features Unclassified at Depth	Proportion of Features Unclassified at Depth	Dataset
+#q2:types	numeric	numeric	numeric	numeric	numeric	numeric	numeric	numeric	numeric	categorical
+1	1	1	0	0	0	1841946	1	0	0	tidybug_c100
+2	2	1	0	0	0	1841946	1	0	0	tidybug_c100
+3	3	18	0.527050953556509	0	0	1841946	1	0	0	tidybug_c100
+4	4	118	2.06828389167685	0	0	1841946	1	0	0	tidybug_c100
+5	5	2063	4.94667920717006	478806	0.259945731308084	1841946	1	0	0	tidybug_c100
+6	6	29904	7.52625366690963	319561	0.173490970962232	1363140	0.740054268691916	478806	0.259945731308084	tidybug_c100
+7	7	150585	8.93140602635241	1043579	0.566563297729684	1043579	0.566563297729684	798367	0.433436702270316	tidybug_c100
